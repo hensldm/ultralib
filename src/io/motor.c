@@ -15,7 +15,7 @@ s32 __osMotorAccess(OSPfs* pfs, s32 flag) {
     u8* ptr = (u8*)&__MotorDataBuf[pfs->channel];
 
     if (!(pfs->status & PFS_MOTOR_INITIALIZED)) {
-        return 5;
+        return PFS_ERR_INVALID;
     }
 
     __osSiGetAccess();
@@ -75,7 +75,7 @@ static void __osMakeMotorData(int channel, OSPifRam* mdata) {
 
 s32 osMotorInit(OSMesgQueue* mq, OSPfs* pfs, int channel) {
     s32 ret;
-    u8 temp[32];
+    u8 temp[BLOCKSIZE];
 
     pfs->queue = mq;
     pfs->channel = channel;
@@ -100,7 +100,7 @@ s32 osMotorInit(OSMesgQueue* mq, OSPfs* pfs, int channel) {
 
     if (ret != 0) {
         return ret;
-    } else if (temp[31] == 254) {
+    } else if (temp[BLOCKSIZE - 1] == 0xFE) {
         return PFS_ERR_DEVICE;
     }
 
@@ -120,7 +120,7 @@ s32 osMotorInit(OSMesgQueue* mq, OSPfs* pfs, int channel) {
 
     if (ret != 0) {
         return ret;
-    } else if (temp[31] != 0x80) {
+    } else if (temp[BLOCKSIZE - 1] != 0x80) {
         return PFS_ERR_DEVICE;
     }
 
@@ -259,10 +259,10 @@ s32 osMotorInit(OSMesgQueue* mq, OSPfs* pfs, int channel) {
     pfs->queue = mq;
     pfs->channel = channel;
     pfs->status = 0;
-    pfs->activebank = 128;
+    pfs->activebank = 0x80;
     
     for (i = 0; i < ARRLEN(temp); i++) {
-        temp[i] = 254;
+        temp[i] = 0xFE;
     }
 
     ret = __osContRamWrite(mq, channel, CONT_BLOCK_DETECT, temp, FALSE);
@@ -285,12 +285,12 @@ s32 osMotorInit(OSMesgQueue* mq, OSPfs* pfs, int channel) {
         return ret;
     }
     
-    if (temp[31] == 254) {
+    if (temp[BLOCKSIZE - 1] == 0xFE) {
         return PFS_ERR_DEVICE;
     }
 
     for (i = 0; i < ARRLEN(temp); i++) {
-        temp[i] = 128;
+        temp[i] = 0x80;
     }
 
     ret = __osContRamWrite(mq, channel, CONT_BLOCK_DETECT, temp, FALSE);
@@ -312,7 +312,7 @@ s32 osMotorInit(OSMesgQueue* mq, OSPfs* pfs, int channel) {
         return ret;
     }
     
-    if (temp[31] != 0x80) {
+    if (temp[BLOCKSIZE - 1] != 0x80) {
         return PFS_ERR_DEVICE;
     }
 
@@ -323,7 +323,7 @@ s32 osMotorInit(OSMesgQueue* mq, OSPfs* pfs, int channel) {
         }
         _MakeMotorData(channel, CONT_BLOCK_RUMBLE, _motorstartbuf, &_MotorStartData[channel]);
         _MakeMotorData(channel, CONT_BLOCK_RUMBLE, _motorstopbuf, &_MotorStopData[channel]);
-        __osMotorinitialized[channel] = 1;
+        __osMotorinitialized[channel] = TRUE;
     }
 
     return 0;
